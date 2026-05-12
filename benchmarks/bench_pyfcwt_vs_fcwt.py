@@ -40,8 +40,8 @@ import numpy as np
 # Configuration – matches the fCWT paper benchmark matrix
 # ---------------------------------------------------------------------------
 
-SIGNAL_LENGTHS = [10_000, 100_000]
-FREQ_BINS = [300, 3_000]
+SIGNAL_LENGTHS = [10_000, 50_000]
+FREQ_BINS = [100, 200]
 FS = 1000.0
 F0 = 1.0
 F1 = 100.0

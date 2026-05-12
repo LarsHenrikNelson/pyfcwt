@@ -4,7 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-pyFCWT is a **pure-Python** port of [fCWT](https://github.com/fastlib/fCWT) that relies on [pyFFTW](https://github.com/pyFFTW/pyFFTW), [Numba](https://numba.pydata.org/) and [NumPy](https://numpy.org/). It is faster than other Python CWT packages while remaining limited to Morlet wavelets. Performance is close to the original C++ fCWT with the added benefit of easy installation on any platform — no compiler required.
+pyFCWT is a **pure-Python** port of [fCWT](https://github.com/fastlib/fCWT) that relies on [pyFFTW](https://github.com/pyFFTW/pyFFTW), [Numba](https://numba.pydata.org/) and [NumPy](https://numpy.org/). It is faster than other Python CWT packages while remaining limited to Morlet wavelets. While performance is slower than the original C++ fCWT it has the added benefit of easy installation on any platform — no compiler required.
 
 ## Features
 
@@ -128,15 +128,13 @@ load_wisdom()
 
 Benchmarks comparing pyFCWT against the original C++ [fCWT](https://github.com/fastlib/fCWT) on the same hardware. Columns are formatted as `signal_length-num_frequencies`.
 
-**Setup:** Morlet wavelet, log-spaced frequencies 1–100 Hz, `threads=-1`.
+**Setup:** Morlet wavelet, log-spaced frequencies 1–100 Hz. PyWavelets is single thread while fCWT and pyFCWT use all physical cores (`os.cpu_count()//2`). Results are the median of 10 iterations. fCWT and pyFCWT were run with float32 input and complex64 output.
 
-| Implementation    | 10k-300 | 10k-3000 | 100k-300 | 100k-3000 |
+| Implementation    | 10k-100 | 10k-200 | 50k-100 | 50k-200 |
 |-------------------|--------:|---------:|---------:|----------:|
-| fCWT (C++)        | …s      | …s       | …s       | …s        |
-| pyFCWT            | …s      | …s       | …s       | …s        |
-| PyWavelets        | …s      | …s       | …s       | …s        |
-| pyFCWT / fCWT     | …×      | …×       | …×       | …×        |
-| PyWavelets / fCWT | …×      | …×       | …×       | …×        |
+| fCWT        | 0.002s      | 0.004s       | 0.008s       | 0.013s        |
+| pyFCWT            | 0.033s      | 0.057s       | 0.078s       | 0.144s        |
+| PyWavelets        | 0.969s      | 1.978s       | DNR       | DNR        |
 
 > **Note:** Fill in the values above with your own measurements.
 > Run `python benchmarks/bench_pyfcwt_vs_fcwt.py` to generate the table.
