@@ -133,7 +133,7 @@ Benchmarks comparing pyFCWT against the original C++ [fCWT](https://github.com/f
 | Implementation    | 10k-100 | 10k-200 | 50k-100 | 50k-200 |
 |-------------------|--------:|---------:|---------:|----------:|
 | fCWT        | 0.002s      | 0.004s       | 0.008s       | 0.013s        |
-| pyFCWT            | 0.027s      | 0.051s       | 0.064s       | 0.131s        |
+| pyFCWT            | 0.022s      | 0.044s       | 0.049s       | 0.100s        |
 | PyWavelets        | 0.969s      | 1.978s       | DNR       | DNR        |
 
 > **Note:** Fill in the values above with your own measurements.
