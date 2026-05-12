@@ -1,0 +1,58 @@
+from pathlib import Path
+from typing import Literal, NamedTuple
+import pyfftw
+
+from . import config
+
+
+__all__ = [
+    "FFTDATA",
+    "get_wisdom",
+    "import_wisdom",
+    "load_wisdom",
+    "save_wisdom",
+]
+
+
+class FFTDATA(NamedTuple):
+    length: int
+    dtype: Literal["complex128", "float64"]
+
+
+def import_wisdom(wisdom):
+    pyfftw.import_wisdom(wisdom)
+
+
+def create_wisdom(input: FFTDATA, output: FFTDATA):
+    if input.dtype == "float64" and output.dtype == "complex128":
+        a = pyfftw.empty_aligned(input.length, dtype="float64")
+        b = pyfftw.empty_aligned(output.length // 2 + 1, dtype="complex128")
+
+        _ = pyfftw.FFTW(a, b)
+    elif input.dtype == "complex128" and output.dtype == "complex128":
+        a = pyfftw.empty_aligned(input.length, dtype="complex128")
+        b = pyfftw.empty_aligned(output.length, dtype="complex128")
+
+        _ = pyfftw.FFTW(a, b)
+
+
+def get_wisdom():
+    return pyfftw.export_wisdom()
+
+
+def save_wisdom():
+    wisdom = pyfftw.export_wisdom()
+    save_path = config.get_cache_dir()
+    for index, i in enumerate(wisdom):
+        with open(save_path / f"{index}_wisdom", "wb") as f:
+            f.write(i)
+
+
+def load_wisdom():
+    temp_path = list(config.get_cache_dir().glob("*_wisdom"))
+    if len(temp_path) > 0:
+        data = []
+        for i in temp_path:
+            with open(i, "rb") as rf:
+                data.append(rf.read())
+        pyfftw.import_wisdom(tuple(data))

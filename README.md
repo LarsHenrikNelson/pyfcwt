@@ -1,0 +1,1 @@
+pyFCWT is a "pure Python" port of [fCWT](https://github.com/fastlib/fCWT) that relies on pyFFTW, numba and numpy. pyFCWT is faster than other python CWT packages but is also limited to morlet wavelets. The speed of pyFCWT is close to fCWT and has the added benefit of working on multiple platforms.

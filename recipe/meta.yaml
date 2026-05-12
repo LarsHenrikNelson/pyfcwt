@@ -1,0 +1,40 @@
+{% set name = "pyfcwt" %}
+{% set version = "0.1.0" %}
+
+package:
+  name: {{ name }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  sha256: REPLACE_WITH_SDIST_SHA256
+
+build:
+  noarch: python
+  number: 0
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+
+requirements:
+  host:
+    - python >=3.12
+    - pip
+    - hatchling
+  run:
+    - python >=3.12
+    - numpy >=2.4.4
+    - numba >=0.65.1
+    - pyfftw >=0.15.1
+
+test:
+  imports:
+    - pyfcwt
+
+about:
+  home: https://github.com/larshnelson/pyfcwt
+  license: MIT
+  license_file: LICENSE
+  summary: A pure-Python fast continuous wavelet transform (fCWT) implementation
+
+extra:
+  recipe-maintainers:
+    - GITHUB_USERNAME
