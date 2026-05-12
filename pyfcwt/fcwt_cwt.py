@@ -113,6 +113,14 @@ class PyFCWT:
             self.fftw_cdtype = "complex64"
             self.n_fdtype = np.float32
             self.n_cdtype = np.complex64
+        self._cached_size: int | None = None
+        self.a = None
+        self.b = None
+        self.Ihat = None
+        self.c = None
+        self.d = None
+        self._forward_fft = None
+        self._backward_fft = None
 
         # Warmup: force Numba JIT compilation and parallel runtime
         # initialization so the first real call doesn't return zeros.
@@ -158,31 +166,38 @@ class PyFCWT:
         if input_data.dtype != self.n_fdtype:
             input_data = input_data.astype(self.n_fdtype)
 
-        # Only need for rfft or if using fftw
-        a = pyfftw.zeros_aligned(newsize, dtype=self.fftw_fdtype)
-        b = pyfftw.zeros_aligned(newsize // 2 + 1, dtype=self.fftw_cdtype)
-        Ihat = pyfftw.zeros_aligned(newsize, dtype=self.fftw_cdtype)
+        # Allocate aligned buffers and plan FFTs only when the padded
+        # size changes.  FFTW planning (FFTW_MEASURE) is expensive, so
+        # reusing plans across calls is critical for performance.
+        if self._cached_size != newsize:
+            self.a = pyfftw.zeros_aligned(newsize, dtype=self.fftw_fdtype)
+            self.b = pyfftw.zeros_aligned(newsize // 2 + 1, dtype=self.fftw_cdtype)
+            self.Ihat = pyfftw.zeros_aligned(newsize, dtype=self.fftw_cdtype)
+            self.c = pyfftw.zeros_aligned(newsize, dtype=self.fftw_cdtype)
+            self.d = pyfftw.zeros_aligned(newsize, dtype=self.fftw_cdtype)
 
-        # Plan BEFORE filling a — FFTW_MEASURE destroys buffer contents.
-        forward_fft = pyfftw.FFTW(a, b, threads=self.threads)
-        a[:size] = input_data
-        forward_fft()
+            # Plan BEFORE filling buffers — FFTW_MEASURE destroys contents.
+            self._forward_fft = pyfftw.FFTW(
+                self.a, self.b, threads=self.threads
+            )
+            self._backward_fft = pyfftw.FFTW(
+                self.c, self.d, direction="FFTW_BACKWARD", threads=self.threads
+            )
+            self._cached_size = newsize
 
-        Ihat[: newsize // 2 + 1] = b
+        self.a[:size] = input_data
+        self._forward_fft()
+
+        self.Ihat[: newsize // 2 + 1] = self.b
 
         if newsize % 2 == 0:
             # Even length: exclude DC and Nyquist components
-            Ihat[newsize // 2 + 1 :] = np.conjugate(b[1 : newsize // 2][::-1])
+            self.Ihat[newsize // 2 + 1 :] = np.conjugate(self.b[1 : newsize // 2][::-1])
         else:
             # Odd length: exclude only DC component
-            Ihat[newsize // 2 + 1 :] = np.conjugate(b[1 : newsize // 2 + 1][::-1])
+            self.Ihat[newsize // 2 + 1 :] = np.conjugate(self.b[1 : newsize // 2 + 1][::-1])
 
-        c = pyfftw.zeros_aligned(newsize, dtype=self.fftw_cdtype)
-        d = pyfftw.zeros_aligned(newsize, dtype=self.fftw_cdtype)
-        backward_fft = pyfftw.FFTW(
-            c, d, direction="FFTW_BACKWARD", threads=self.threads
-        )
-
+        self.c[:] = 0
         mother_half_len = self.wavelet.length(self.frequencies.f[0]) // 2
         n_scales = self.frequencies.s.size
         cwt = np.zeros((n_scales, size), dtype=self.n_cdtype)
@@ -193,18 +208,18 @@ class PyFCWT:
         for index in range(n_scales - 1, -1, -1):
             s = self.frequencies.s[index]
             daughter_wavelet_multiplication(
-                input_fft=Ihat,
-                output=c,
+                input_fft=self.Ihat,
+                output=self.c,
                 mother=self.mother,
                 scale=s,
                 mscale=self.mscale,
             )
-            backward_fft()
+            self._backward_fft()
 
             if not self.wavelet.imaginary:
-                cwt[index, :] = d[:size]
+                cwt[index, :] = self.d[:size]
             else:
-                cwt[index, :] = d[mother_half_len : size + mother_half_len]
+                cwt[index, :] = self.d[mother_half_len : size + mother_half_len]
 
         if self.norm:
             cwt /= newsize
