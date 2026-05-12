@@ -1,4 +1,3 @@
-from ty_extensions import Unknown
 from typing import Literal
 
 import numpy as np

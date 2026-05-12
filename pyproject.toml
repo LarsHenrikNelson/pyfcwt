@@ -32,3 +32,8 @@ dependencies = [
 dev = [
     "pytest>=9.0.3",
 ]
+benchmark = [
+    "fcwt>=0.0.1",
+    "matplotlib>=3.0.0",
+    "PyWavelets>=1.4.0",
+]
