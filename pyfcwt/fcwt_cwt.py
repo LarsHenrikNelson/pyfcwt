@@ -5,8 +5,8 @@ import numpy as np
 import pyfftw
 from numba import njit, prange
 
-from .wavelets import Wavelet
 from .frequencies import Frequencies
+from .wavelets import Wavelet
 
 
 @njit(cache=True, parallel=True)
@@ -58,6 +58,34 @@ def daughter_wavelet_multiplication(
 
 
 class PyFCWT:
+    """Fast continuous wavelet transform engine.
+
+    Performs the CWT by multiplying daughter wavelets with the input
+    signal in the frequency domain using FFTW for the forward and
+    inverse transforms and Numba for the parallelised wavelet
+    convolution.
+
+    The mother wavelet and FFTW plans are cached between calls to
+    :meth:`cwt` so that repeated transforms on signals of the same
+    length are efficient.
+
+    Parameters
+    ----------
+    wavelet : Wavelet
+        Morlet wavelet instance that defines the mother wavelet.
+    frequencies : Frequencies
+        Frequency / scale grid over which the CWT is computed.
+    threads : int, optional
+        Number of threads used by FFTW.  ``-1`` (default) uses half
+        of the available CPU cores.
+    norm : bool, optional
+        If ``True`` (default), normalise the CWT output by the FFT
+        length so that amplitudes are comparable across signal sizes.
+    dtype : {"complex128", "complex64"}, optional
+        Precision of the internal FFT buffers and the output array.
+        Default is ``"complex128"``.
+    """
+
     def __init__(
         self,
         wavelet: Wavelet,
@@ -65,14 +93,13 @@ class PyFCWT:
         threads: int = -1,
         norm: bool = True,
         dtype: Literal["complex128", "complex64"] = "complex128",
-        zero_pad: bool = False,
     ):
         self.frequencies = frequencies
         self.wavelet = wavelet
         self.mother = None
         self.mscale = None
         if threads == -1:
-            self.threads = os.cpu_count() // 2
+            self.threads: int = int(os.cpu_count()) // 2
         else:
             self.threads = threads
         self.norm = norm
@@ -86,7 +113,6 @@ class PyFCWT:
             self.fftw_cdtype = "complex64"
             self.n_fdtype = np.float32
             self.n_cdtype = np.complex64
-        self.zero_pad = zero_pad
 
         # Warmup: force Numba JIT compilation and parallel runtime
         # initialization so the first real call doesn't return zeros.
@@ -97,6 +123,28 @@ class PyFCWT:
         self,
         input_data: np.ndarray,
     ):
+        """Compute the continuous wavelet transform of a 1-D signal.
+
+        The input is zero-padded to the next FFTW-friendly length,
+        transformed into the frequency domain, convolved with scaled
+        daughter wavelets, and transformed back.  The mother wavelet
+        and associated scale are cached so that subsequent calls with
+        the same signal length reuse the existing plan.
+
+        Parameters
+        ----------
+        input_data : np.ndarray
+            Real-valued 1-D input signal.  If the dtype does not match
+            the engine's configured precision it is cast automatically.
+
+        Returns
+        -------
+        np.ndarray
+            Complex CWT coefficient matrix with shape
+            ``(n_freqs, n_samples)`` where *n_freqs* is the number of
+            frequency bins in ``self.frequencies`` and *n_samples* is
+            ``input_data.size``.
+        """
         size = input_data.size
         max_w_size = self.wavelet.length(self.frequencies.f[-1])
         newsize = pyfftw.next_fast_len(size + max_w_size - 1)
@@ -124,10 +172,10 @@ class PyFCWT:
 
         if newsize % 2 == 0:
             # Even length: exclude DC and Nyquist components
-            Ihat[newsize // 2 + 1:] = np.conjugate(b[1:newsize // 2][::-1])
+            Ihat[newsize // 2 + 1 :] = np.conjugate(b[1 : newsize // 2][::-1])
         else:
             # Odd length: exclude only DC component
-            Ihat[newsize // 2 + 1:] = np.conjugate(b[1:newsize // 2 + 1][::-1])
+            Ihat[newsize // 2 + 1 :] = np.conjugate(b[1 : newsize // 2 + 1][::-1])
 
         c = pyfftw.zeros_aligned(newsize, dtype=self.fftw_cdtype)
         d = pyfftw.zeros_aligned(newsize, dtype=self.fftw_cdtype)
@@ -184,9 +232,7 @@ class PyFCWT:
             return self.frequencies.f / n_cycles
         else:
             # Fixed sigma: sigma_f = sigma / n_cycles  (constant)
-            return np.full_like(
-                self.frequencies.f, self.wavelet.sigma / n_cycles
-            )
+            return np.full_like(self.frequencies.f, self.wavelet.sigma / n_cycles)
 
     def enbw(self) -> np.ndarray:
         """Equivalent noise bandwidth of the wavelet at each analysis
