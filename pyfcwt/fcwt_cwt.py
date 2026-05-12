@@ -92,7 +92,7 @@ class PyFCWT:
         frequencies: Frequencies,
         threads: int = -1,
         norm: bool = True,
-        dtype: Literal["complex128", "complex64"] = "complex128",
+        dtype: Literal["complex128", "complex64"] = "complex64",
     ):
         self.frequencies = frequencies
         self.wavelet = wavelet
