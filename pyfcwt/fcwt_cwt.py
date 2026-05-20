@@ -38,7 +38,7 @@ def daughter_wavelet_multiplication(
     """
     isize = input_fft.size
     isizef = float(isize)
-    endpointf = min(isizef / mscale, (isizef * mscale) / scale)
+    endpointf = min(isizef, (isizef * mscale) / scale)
     step = scale / mscale
     endpoint = int(endpointf)
     batchsize = endpoint
